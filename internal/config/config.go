@@ -13,10 +13,11 @@ import (
 //  2. Config file            (~/.config/sage/config.json)
 //  3. Built-in defaults
 type Config struct {
-	Provider string       `json:"provider"`
-	Claude   ClaudeConfig `json:"claude"`
-	OpenAI   OpenAIConfig `json:"openai"`
-	Ollama   OllamaConfig `json:"ollama"`
+	Provider   string           `json:"provider"`
+	Claude     ClaudeConfig     `json:"claude"`
+	OpenAI     OpenAIConfig     `json:"openai"`
+	Ollama     OllamaConfig     `json:"ollama"`
+	OpenRouter OpenRouterConfig `json:"openrouter"`
 }
 
 type ClaudeConfig struct {
@@ -34,6 +35,11 @@ type OllamaConfig struct {
 	Model string `json:"model"`
 }
 
+type OpenRouterConfig struct {
+	APIKey string `json:"api_key"`
+	Model  string `json:"model"`
+}
+
 // defaults
 var defaultConfig = Config{
 	Provider: "claude",
@@ -46,6 +52,9 @@ var defaultConfig = Config{
 	Ollama: OllamaConfig{
 		Host:  "http://localhost:11434",
 		Model: "qwen2.5-coder:1.5b",
+	},
+	OpenRouter: OpenRouterConfig{
+		Model: "google/gemma-3-12b-it:free",
 	},
 }
 
@@ -87,6 +96,15 @@ func Load() (*Config, error) {
 	}
 	if v := os.Getenv("SAGE_OLLAMA_MODEL"); v != "" {
 		cfg.Ollama.Model = v
+	}
+	if v := os.Getenv("OPENROUTER_API_KEY"); v != "" {
+		cfg.OpenRouter.APIKey = v
+	}
+	if v := os.Getenv("SAGE_OPENROUTER_API_KEY"); v != "" {
+		cfg.OpenRouter.APIKey = v
+	}
+	if v := os.Getenv("SAGE_OPENROUTER_MODEL"); v != "" {
+		cfg.OpenRouter.Model = v
 	}
 
 	return &cfg, nil

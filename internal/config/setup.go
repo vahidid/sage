@@ -19,9 +19,10 @@ func RunSetup() (*Config, error) {
 
 	// ── provider ─────────────────────────────────────────────────────────────
 	fmt.Println("Choose a provider:")
-	fmt.Println("  [1] Claude  — Anthropic API (recommended)")
-	fmt.Println("  [2] OpenAI  — GPT models")
-	fmt.Println("  [3] Ollama  — local model, no API key needed")
+	fmt.Println("  [1] Claude      — Anthropic API (recommended)")
+	fmt.Println("  [2] OpenAI      — GPT models")
+	fmt.Println("  [3] Ollama      — local model, no API key needed")
+	fmt.Println("  [4] OpenRouter  — 300+ models via one API key")
 	fmt.Print("\nProvider [1]: ")
 
 	choice := strings.TrimSpace(readLine(r))
@@ -43,6 +44,11 @@ func RunSetup() (*Config, error) {
 	case "3", "ollama":
 		cfg.Provider = "ollama"
 		setupOllama(r, &cfg)
+	case "4", "openrouter":
+		cfg.Provider = "openrouter"
+		if err := setupOpenRouter(r, &cfg); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, fmt.Errorf("invalid choice %q — run sage again to retry", choice)
 	}
@@ -89,6 +95,21 @@ func setupOpenAI(r *bufio.Reader, cfg *Config) error {
 	fmt.Printf("Model [%s]: ", defaultConfig.OpenAI.Model)
 	if m := strings.TrimSpace(readLine(r)); m != "" {
 		cfg.OpenAI.Model = m
+	}
+	return nil
+}
+
+func setupOpenRouter(r *bufio.Reader, cfg *Config) error {
+	fmt.Print("\nOpenRouter API key (sk-or-...): ")
+	key := strings.TrimSpace(readLine(r))
+	if key == "" {
+		return fmt.Errorf("API key cannot be empty")
+	}
+	cfg.OpenRouter.APIKey = key
+
+	fmt.Printf("Model [%s]: ", defaultConfig.OpenRouter.Model)
+	if m := strings.TrimSpace(readLine(r)); m != "" {
+		cfg.OpenRouter.Model = m
 	}
 	return nil
 }

@@ -16,7 +16,7 @@ func main() {
 	// ── flags ─────────────────────────────────────────────────────────────────
 	dryRun   := flag.Bool("dry-run", false, "Generate message without committing")
 	stageAll := flag.Bool("all", false, "Stage all changes before committing (like git commit -a)")
-	provider := flag.String("provider", "", "Override provider (claude, openai, ollama)")
+	provider := flag.String("provider", "", "Override provider (claude, openai, ollama, openrouter)")
 	ver      := flag.Bool("version", false, "Print version and exit")
 
 	flag.Usage = func() {
@@ -156,8 +156,18 @@ func resolveProvider(cfg *config.Config) (ai.Provider, error) {
 	case "ollama":
 		return ai.NewOllamaProvider(cfg.Ollama.Host, cfg.Ollama.Model), nil
 
+	case "openrouter":
+		if cfg.OpenRouter.APIKey == "" {
+			return nil, fmt.Errorf(
+				"❌ OpenRouter API key not set\n"+
+					"   Set env var:  export OPENROUTER_API_KEY=sk-or-...\n"+
+					"   Or add it to: %s", config.FilePath(),
+			)
+		}
+		return ai.NewOpenRouterProvider(cfg.OpenRouter.APIKey, cfg.OpenRouter.Model), nil
+
 	default:
-		return nil, fmt.Errorf("❌ unknown provider %q — choose: claude, openai, ollama", cfg.Provider)
+		return nil, fmt.Errorf("❌ unknown provider %q — choose: claude, openai, ollama, openrouter", cfg.Provider)
 	}
 }
 
