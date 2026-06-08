@@ -14,10 +14,10 @@ const version = "0.1.0"
 
 func main() {
 	// ── flags ─────────────────────────────────────────────────────────────────
-	dryRun   := flag.Bool("dry-run", false, "Generate message without committing")
+	dryRun := flag.Bool("dry-run", false, "Generate message without committing")
 	stageAll := flag.Bool("all", false, "Stage all changes before committing (like git commit -a)")
 	provider := flag.String("provider", "", "Override provider (claude, openai, ollama, openrouter)")
-	ver      := flag.Bool("version", false, "Print version and exit")
+	ver := flag.Bool("version", false, "Print version and exit")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `sage %s — Git AI Commit
@@ -80,12 +80,11 @@ func run(dryRun bool, stageAll bool, providerOverride string) error {
 
 	// 3. stage all if requested
 	if stageAll {
-		if !git.HasUnstagedChanges() {
-			return fmt.Errorf("❌ nothing to stage")
-		}
-		fmt.Println("📦 Staging all changes...")
-		if err := git.StageAll(); err != nil {
-			return err
+		if git.HasUnstagedChanges() {
+			fmt.Println("📦 Staging all changes...")
+			if err := git.StageAll(); err != nil {
+				return err
+			}
 		}
 	}
 

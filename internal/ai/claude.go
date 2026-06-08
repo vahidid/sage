@@ -46,6 +46,7 @@ type message struct {
 
 type claudeResponse struct {
 	Content []struct {
+		Type string `json:"type"`
 		Text string `json:"text"`
 	} `json:"content"`
 	Error *struct {
@@ -93,9 +94,10 @@ func (c *ClaudeProvider) GenerateCommitMessage(diff string) (string, error) {
 		return "", fmt.Errorf("Claude API error: %s", cr.Error.Message)
 	}
 
-	if len(cr.Content) == 0 {
-		return "", fmt.Errorf("empty response from Claude")
+	for _, block := range cr.Content {
+		if block.Type == "text" {
+			return cleanMessage(block.Text), nil
+		}
 	}
-
-	return cleanMessage(cr.Content[0].Text), nil
+	return "", fmt.Errorf("empty response from Claude")
 }

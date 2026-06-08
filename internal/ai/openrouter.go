@@ -35,10 +35,17 @@ func (o *OpenRouterProvider) GenerateCommitMessage(diff string) (string, error) 
 		Role    string `json:"role"`
 		Content string `json:"content"`
 	}
+	type reasoning struct {
+		Effort  string `json:"effort"`
+		Exclude bool   `json:"exclude"`
+	}
 	type reqBody struct {
-		Model     string `json:"model"`
-		MaxTokens int    `json:"max_tokens"`
-		Messages  []msg  `json:"messages"`
+		Model       string    `json:"model"`
+		MaxTokens   int       `json:"max_tokens"`
+		Temperature float64   `json:"temperature"`
+		Stream      bool      `json:"stream"`
+		Reasoning   reasoning `json:"reasoning"`
+		Messages    []msg     `json:"messages"`
 	}
 	type respBody struct {
 		Choices []struct {
@@ -52,9 +59,18 @@ func (o *OpenRouterProvider) GenerateCommitMessage(diff string) (string, error) 
 	}
 
 	body, err := json.Marshal(reqBody{
-		Model:     o.model,
-		MaxTokens: 150,
-		Messages:  []msg{{Role: "user", Content: buildPrompt(diff)}},
+		Model:       o.model,
+		MaxTokens:   80,
+		Temperature: 0,
+		Stream:      false,
+		Reasoning: reasoning{
+			Effort:  "none",
+			Exclude: true,
+		},
+		Messages: []msg{
+			{Role: "system", Content: "Return only the final commit message. Do not include reasoning, analysis, explanations, or thinking tags."},
+			{Role: "user", Content: buildPrompt(diff)},
+		},
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to build request: %w", err)
