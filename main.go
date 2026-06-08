@@ -57,10 +57,21 @@ func run(dryRun bool, providerOverride string) error {
 		return fmt.Errorf("❌ not a git repository")
 	}
 
-	// 2. load config
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("config error: %w", err)
+	// 2. load config (run first-time setup if no config file exists)
+	var (
+		cfg *config.Config
+		err error
+	)
+	if !config.Exists() {
+		cfg, err = config.RunSetup()
+		if err != nil {
+			return fmt.Errorf("setup failed: %w", err)
+		}
+	} else {
+		cfg, err = config.Load()
+		if err != nil {
+			return fmt.Errorf("config error: %w", err)
+		}
 	}
 	if providerOverride != "" {
 		cfg.Provider = providerOverride

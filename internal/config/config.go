@@ -77,5 +77,5 @@ func Load() (*Config, error) {
 // FilePath returns the expected config file location.
 func FilePath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "gac", "config.json")
+	return filepath.Join(home, ".config", "sage", "config.json")
 }
