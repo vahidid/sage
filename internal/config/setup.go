@@ -20,7 +20,8 @@ func RunSetup() (*Config, error) {
 	// ── provider ─────────────────────────────────────────────────────────────
 	fmt.Println("Choose a provider:")
 	fmt.Println("  [1] Claude  — Anthropic API (recommended)")
-	fmt.Println("  [2] Ollama  — local model, no API key needed")
+	fmt.Println("  [2] OpenAI  — GPT models")
+	fmt.Println("  [3] Ollama  — local model, no API key needed")
 	fmt.Print("\nProvider [1]: ")
 
 	choice := strings.TrimSpace(readLine(r))
@@ -34,7 +35,12 @@ func RunSetup() (*Config, error) {
 		if err := setupClaude(r, &cfg); err != nil {
 			return nil, err
 		}
-	case "2", "ollama":
+	case "2", "openai":
+		cfg.Provider = "openai"
+		if err := setupOpenAI(r, &cfg); err != nil {
+			return nil, err
+		}
+	case "3", "ollama":
 		cfg.Provider = "ollama"
 		setupOllama(r, &cfg)
 	default:
@@ -68,6 +74,21 @@ func setupClaude(r *bufio.Reader, cfg *Config) error {
 	fmt.Printf("Model [%s]: ", defaultConfig.Claude.Model)
 	if m := strings.TrimSpace(readLine(r)); m != "" {
 		cfg.Claude.Model = m
+	}
+	return nil
+}
+
+func setupOpenAI(r *bufio.Reader, cfg *Config) error {
+	fmt.Print("\nOpenAI API key (sk-...): ")
+	key := strings.TrimSpace(readLine(r))
+	if key == "" {
+		return fmt.Errorf("API key cannot be empty")
+	}
+	cfg.OpenAI.APIKey = key
+
+	fmt.Printf("Model [%s]: ", defaultConfig.OpenAI.Model)
+	if m := strings.TrimSpace(readLine(r)); m != "" {
+		cfg.OpenAI.Model = m
 	}
 	return nil
 }

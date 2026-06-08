@@ -15,7 +15,8 @@ const version = "0.1.0"
 func main() {
 	// ── flags ─────────────────────────────────────────────────────────────────
 	dryRun   := flag.Bool("dry-run", false, "Generate message without committing")
-	provider := flag.String("provider", "", "Override provider (claude, ollama)")
+	stageAll := flag.Bool("all", false, "Stage all changes before committing (like git commit -a)")
+	provider := flag.String("provider", "", "Override provider (claude, openai, ollama)")
 	ver      := flag.Bool("version", false, "Print version and exit")
 
 	flag.Usage = func() {
@@ -45,13 +46,13 @@ Docs:        github.com/vahidid/sage
 		return
 	}
 
-	if err := run(*dryRun, *provider); err != nil {
+	if err := run(*dryRun, *stageAll, *provider); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(dryRun bool, providerOverride string) error {
+func run(dryRun bool, stageAll bool, providerOverride string) error {
 	// 1. must be inside a git repo
 	if !git.IsGitRepo() {
 		return fmt.Errorf("❌ not a git repository")
@@ -77,14 +78,25 @@ func run(dryRun bool, providerOverride string) error {
 		cfg.Provider = providerOverride
 	}
 
-	// 3. staged diff
+	// 3. stage all if requested
+	if stageAll {
+		if !git.HasUnstagedChanges() {
+			return fmt.Errorf("❌ nothing to stage")
+		}
+		fmt.Println("📦 Staging all changes...")
+		if err := git.StageAll(); err != nil {
+			return err
+		}
+	}
+
+	// 4. staged diff
 	fmt.Println("📋 Reading staged changes...")
 	diff, err := git.GetStagedDiff()
 	if err != nil {
 		return err
 	}
 
-	// 4. resolve provider
+	// 5. resolve provider
 	p, err := resolveProvider(cfg)
 	if err != nil {
 		return err
@@ -131,11 +143,21 @@ func resolveProvider(cfg *config.Config) (ai.Provider, error) {
 		}
 		return ai.NewClaudeProvider(cfg.Claude.APIKey, cfg.Claude.Model), nil
 
+	case "openai":
+		if cfg.OpenAI.APIKey == "" {
+			return nil, fmt.Errorf(
+				"❌ OpenAI API key not set\n"+
+					"   Set env var:  export OPENAI_API_KEY=sk-...\n"+
+					"   Or add it to: %s", config.FilePath(),
+			)
+		}
+		return ai.NewOpenAIProvider(cfg.OpenAI.APIKey, cfg.OpenAI.Model), nil
+
 	case "ollama":
 		return ai.NewOllamaProvider(cfg.Ollama.Host, cfg.Ollama.Model), nil
 
 	default:
-		return nil, fmt.Errorf("❌ unknown provider %q — choose: claude, ollama", cfg.Provider)
+		return nil, fmt.Errorf("❌ unknown provider %q — choose: claude, openai, ollama", cfg.Provider)
 	}
 }
 

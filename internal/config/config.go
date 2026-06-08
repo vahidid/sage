@@ -15,10 +15,16 @@ import (
 type Config struct {
 	Provider string       `json:"provider"`
 	Claude   ClaudeConfig `json:"claude"`
+	OpenAI   OpenAIConfig `json:"openai"`
 	Ollama   OllamaConfig `json:"ollama"`
 }
 
 type ClaudeConfig struct {
+	APIKey string `json:"api_key"`
+	Model  string `json:"model"`
+}
+
+type OpenAIConfig struct {
 	APIKey string `json:"api_key"`
 	Model  string `json:"model"`
 }
@@ -33,6 +39,9 @@ var defaultConfig = Config{
 	Provider: "claude",
 	Claude: ClaudeConfig{
 		Model: "claude-haiku-4-5-20251001",
+	},
+	OpenAI: OpenAIConfig{
+		Model: "gpt-4o-mini",
 	},
 	Ollama: OllamaConfig{
 		Host:  "http://localhost:11434",
@@ -63,6 +72,15 @@ func Load() (*Config, error) {
 	}
 	if v := os.Getenv("SAGE_CLAUDE_MODEL"); v != "" {
 		cfg.Claude.Model = v
+	}
+	if v := os.Getenv("OPENAI_API_KEY"); v != "" {
+		cfg.OpenAI.APIKey = v
+	}
+	if v := os.Getenv("SAGE_OPENAI_API_KEY"); v != "" {
+		cfg.OpenAI.APIKey = v
+	}
+	if v := os.Getenv("SAGE_OPENAI_MODEL"); v != "" {
+		cfg.OpenAI.Model = v
 	}
 	if v := os.Getenv("SAGE_OLLAMA_HOST"); v != "" {
 		cfg.Ollama.Host = v

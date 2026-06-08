@@ -31,6 +31,34 @@ func GetStagedDiff() (string, error) {
 	return diff, nil
 }
 
+// StageAll runs `git add -A` to stage all tracked and untracked changes.
+func StageAll() error {
+	out, err := exec.Command("git", "add", "-A").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git add failed:\n%s", string(out))
+	}
+	return nil
+}
+
+// HasUnstagedChanges reports whether there are any unstaged modifications.
+func HasUnstagedChanges() bool {
+	out, _ := exec.Command("git", "status", "--porcelain").Output()
+	for _, line := range strings.Split(string(out), "\n") {
+		if len(line) < 2 {
+			continue
+		}
+		// first char = index (staged), second char = worktree (unstaged)
+		if line[1] != ' ' && line[1] != '?' {
+			return true
+		}
+		// untracked files (both chars are '?')
+		if line[0] == '?' && line[1] == '?' {
+			return true
+		}
+	}
+	return false
+}
+
 // Commit runs `git commit -m <message>`.
 func Commit(message string) error {
 	out, err := exec.Command("git", "commit", "-m", message).CombinedOutput()
