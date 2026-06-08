@@ -7,6 +7,7 @@ import (
 )
 
 const maxDiffLines = 500
+const commitSystemPrompt = "Return only one final commit message. No analysis, no reasoning, no markdown, no quotes, one line."
 
 // buildPrompt constructs the prompt sent to any AI provider.
 // Keeping it here means all providers behave identically.
@@ -21,31 +22,15 @@ func buildPrompt(diff string) string {
 
 	body := strings.Join(lines, "\n")
 	if truncated {
-		body += "\n\n[diff truncated — showing first 500 lines]"
+		body += "\n\n[diff truncated - showing first 500 lines]"
 	}
 
-	return fmt.Sprintf(`Analyze the git diff below and output a single commit message.
+	return fmt.Sprintf(`Write a Conventional Commit message for this git diff.
+Format: <type>(<scope>): <subject>
+Types: feat, fix, refactor, chore, docs, style, test, perf
+Rules: <=72 chars, imperative subject, lowercase after colon, no period.
 
-## COMMIT DESIGN RULES:
-- Format: <type>(<scope>): <subject>
-- Types: feat, fix, refactor, chore, docs, style, test, perf
-- Scope: the module, file, or domain affected (e.g. auth, billing, api)
-- Subject: imperative mood — "Add X" not "Added X", "Fix Y" not "Fixed Y"
-- Maximum 72 characters total
-- Be specific about WHAT changed, not HOW or WHY
-- No period at the end
-- Lowercase after the colon
-
-## EXAMPLES:
-  feat(auth): add OAuth2 login with Google
-  fix(billing): prevent double charge on retry
-  refactor(api): extract pagination logic to helper
-  chore(deps): upgrade Laravel to 11.x
-
-## OUTPUT RULE:
-Return ONLY the commit message — one line, no quotes, no backticks, no explanation, no prefix like "Commit:" or "Message:". Any extra word is a failure.
-
-Git diff:
+Diff:
 %s`, body)
 }
 

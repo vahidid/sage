@@ -34,9 +34,11 @@ func (c *ClaudeProvider) Name() string {
 // ── request / response structs ────────────────────────────────────────────────
 
 type claudeRequest struct {
-	Model     string    `json:"model"`
-	MaxTokens int       `json:"max_tokens"`
-	Messages  []message `json:"messages"`
+	Model       string    `json:"model"`
+	MaxTokens   int       `json:"max_tokens"`
+	Temperature float64   `json:"temperature"`
+	System      string    `json:"system"`
+	Messages    []message `json:"messages"`
 }
 
 type message struct {
@@ -59,8 +61,10 @@ type claudeResponse struct {
 
 func (c *ClaudeProvider) GenerateCommitMessage(diff string) (string, error) {
 	body, err := json.Marshal(claudeRequest{
-		Model:     c.model,
-		MaxTokens: 150,
+		Model:       c.model,
+		MaxTokens:   80,
+		Temperature: 0,
+		System:      commitSystemPrompt,
 		Messages: []message{
 			{Role: "user", Content: buildPrompt(diff)},
 		},

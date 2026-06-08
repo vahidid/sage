@@ -68,7 +68,7 @@ func (o *OpenRouterProvider) GenerateCommitMessage(diff string) (string, error) 
 			Exclude: true,
 		},
 		Messages: []msg{
-			{Role: "system", Content: "Return only the final commit message. Do not include reasoning, analysis, explanations, or thinking tags."},
+			{Role: "system", Content: commitSystemPrompt},
 			{Role: "user", Content: buildPrompt(diff)},
 		},
 	})

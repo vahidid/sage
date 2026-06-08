@@ -33,9 +33,11 @@ func (o *OpenAIProvider) Name() string {
 // ── request / response structs ────────────────────────────────────────────────
 
 type openaiRequest struct {
-	Model     string          `json:"model"`
-	MaxTokens int             `json:"max_tokens"`
-	Messages  []openaiMessage `json:"messages"`
+	Model       string          `json:"model"`
+	MaxTokens   int             `json:"max_tokens"`
+	Temperature float64         `json:"temperature"`
+	Stream      bool            `json:"stream"`
+	Messages    []openaiMessage `json:"messages"`
 }
 
 type openaiMessage struct {
@@ -58,9 +60,12 @@ type openaiResponse struct {
 
 func (o *OpenAIProvider) GenerateCommitMessage(diff string) (string, error) {
 	body, err := json.Marshal(openaiRequest{
-		Model:     o.model,
-		MaxTokens: 150,
+		Model:       o.model,
+		MaxTokens:   80,
+		Temperature: 0,
+		Stream:      false,
 		Messages: []openaiMessage{
+			{Role: "system", Content: commitSystemPrompt},
 			{Role: "user", Content: buildPrompt(diff)},
 		},
 	})
