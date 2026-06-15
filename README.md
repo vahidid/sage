@@ -93,6 +93,7 @@ shown by `sage --list-models`.
 | Variable | Description |
 |----------|-------------|
 | `SAGE_PROVIDER` | Override provider (`free`, `claude`, `openai`, `ollama`, `openrouter`) |
+| `SAGE_DEBUG` | Show provider HTTP status and raw error details |
 | `SAGE_FREE_MODEL` | Override built-in free model |
 | `SAGE_FREE_OPENROUTER_API_KEY` | Local/dev key for built-in free models |
 | `ANTHROPIC_API_KEY` | Claude API key (standard) |

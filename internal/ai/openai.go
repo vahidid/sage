@@ -51,9 +51,7 @@ type openaiResponse struct {
 			Content string `json:"content"`
 		} `json:"message"`
 	} `json:"choices"`
-	Error *struct {
-		Message string `json:"message"`
-	} `json:"error,omitempty"`
+	Error *providerAPIError `json:"error,omitempty"`
 }
 
 // ── main method ───────────────────────────────────────────────────────────────
@@ -90,15 +88,21 @@ func (o *OpenAIProvider) GenerateCommitMessage(diff string) (string, error) {
 
 	var or openaiResponse
 	if err := json.Unmarshal(raw, &or); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
+		return "", formatProviderParseError("OpenAI", resp.StatusCode, raw, err)
+	}
+
+	if resp.StatusCode >= http.StatusBadRequest && or.Error == nil {
+		return "", formatProviderAPIError("OpenAI", resp.StatusCode, providerAPIError{
+			Message: resp.Status,
+		}, raw)
 	}
 
 	if or.Error != nil {
-		return "", fmt.Errorf("OpenAI API error: %s", or.Error.Message)
+		return "", formatProviderAPIError("OpenAI", resp.StatusCode, *or.Error, raw)
 	}
 
 	if len(or.Choices) == 0 {
-		return "", fmt.Errorf("empty response from OpenAI")
+		return "", formatProviderEmptyResponse("OpenAI", resp.StatusCode, raw)
 	}
 
 	return cleanMessage(or.Choices[0].Message.Content), nil

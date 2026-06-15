@@ -53,9 +53,7 @@ func (o *OpenRouterProvider) GenerateCommitMessage(diff string) (string, error) 
 				Content string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
-		Error *struct {
-			Message string `json:"message"`
-		} `json:"error,omitempty"`
+		Error *providerAPIError `json:"error,omitempty"`
 	}
 
 	body, err := json.Marshal(reqBody{
@@ -94,15 +92,21 @@ func (o *OpenRouterProvider) GenerateCommitMessage(diff string) (string, error) 
 
 	var or respBody
 	if err := json.Unmarshal(raw, &or); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
+		return "", formatProviderParseError("OpenRouter", resp.StatusCode, raw, err)
+	}
+
+	if resp.StatusCode >= http.StatusBadRequest && or.Error == nil {
+		return "", formatProviderAPIError("OpenRouter", resp.StatusCode, providerAPIError{
+			Message: resp.Status,
+		}, raw)
 	}
 
 	if or.Error != nil {
-		return "", fmt.Errorf("OpenRouter API error: %s", or.Error.Message)
+		return "", formatProviderAPIError("OpenRouter", resp.StatusCode, *or.Error, raw)
 	}
 
 	if len(or.Choices) == 0 {
-		return "", fmt.Errorf("empty response from OpenRouter")
+		return "", formatProviderEmptyResponse("OpenRouter", resp.StatusCode, raw)
 	}
 
 	return cleanMessage(or.Choices[0].Message.Content), nil

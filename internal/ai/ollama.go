@@ -77,11 +77,19 @@ func (o *OllamaProvider) GenerateCommitMessage(diff string) (string, error) {
 
 	var or ollamaResponse
 	if err := json.Unmarshal(raw, &or); err != nil {
-		return "", fmt.Errorf("failed to parse Ollama response: %w", err)
+		return "", formatProviderParseError("Ollama", resp.StatusCode, raw, err)
+	}
+
+	if resp.StatusCode >= http.StatusBadRequest && or.Error == "" {
+		return "", formatProviderAPIError("Ollama", resp.StatusCode, providerAPIError{
+			Message: resp.Status,
+		}, raw)
 	}
 
 	if or.Error != "" {
-		return "", fmt.Errorf("Ollama error: %s", or.Error)
+		return "", formatProviderAPIError("Ollama", resp.StatusCode, providerAPIError{
+			Message: or.Error,
+		}, raw)
 	}
 
 	return cleanMessage(or.Response), nil

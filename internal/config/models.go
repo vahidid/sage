@@ -10,24 +10,24 @@ type FreeModel struct {
 
 var FreeModels = []FreeModel{
 	{
-		ID:          "qwen/qwen3-coder:free",
-		Name:        "Qwen3 Coder",
-		Description: "best default for code-heavy diffs",
+		ID:          "nvidia/nemotron-3-ultra-550b-a55b:free",
+		Name:        "NVIDIA Nemotron 3 Ultra",
+		Description: "large reasoning model for complex diffs",
 	},
 	{
-		ID:          "openai/gpt-oss-20b:free",
-		Name:        "GPT OSS 20B",
-		Description: "fast general-purpose commit messages",
+		ID:          "nex-agi/nex-n2-pro:free",
+		Name:        "Nex AGI Nex-N2-Pro",
+		Description: "agentic MoE model with strong code reasoning",
 	},
 	{
-		ID:          "google/gemma-4-26b-a4b-it:free",
-		Name:        "Gemma 4 26B",
-		Description: "balanced open model",
+		ID:          "google/gemma-4-31b-it:free",
+		Name:        "Google Gemma 4 31B",
+		Description: "long-context instruct model for larger changes",
 	},
 	{
-		ID:          "meta-llama/llama-3.3-70b-instruct:free",
-		Name:        "Llama 3.3 70B",
-		Description: "strong general instruction following",
+		ID:          "liquid/lfm-2.5-1.2b-instruct:free",
+		Name:        "LiquidAI LFM2.5 1.2B",
+		Description: "compact low-latency model for quick commits",
 	},
 }
 

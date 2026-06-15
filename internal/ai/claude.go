@@ -51,10 +51,7 @@ type claudeResponse struct {
 		Type string `json:"type"`
 		Text string `json:"text"`
 	} `json:"content"`
-	Error *struct {
-		Type    string `json:"type"`
-		Message string `json:"message"`
-	} `json:"error,omitempty"`
+	Error *providerAPIError `json:"error,omitempty"`
 }
 
 // ── main method ───────────────────────────────────────────────────────────────
@@ -91,11 +88,17 @@ func (c *ClaudeProvider) GenerateCommitMessage(diff string) (string, error) {
 
 	var cr claudeResponse
 	if err := json.Unmarshal(raw, &cr); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
+		return "", formatProviderParseError("Claude", resp.StatusCode, raw, err)
+	}
+
+	if resp.StatusCode >= http.StatusBadRequest && cr.Error == nil {
+		return "", formatProviderAPIError("Claude", resp.StatusCode, providerAPIError{
+			Message: resp.Status,
+		}, raw)
 	}
 
 	if cr.Error != nil {
-		return "", fmt.Errorf("Claude API error: %s", cr.Error.Message)
+		return "", formatProviderAPIError("Claude", resp.StatusCode, *cr.Error, raw)
 	}
 
 	for _, block := range cr.Content {
@@ -103,5 +106,5 @@ func (c *ClaudeProvider) GenerateCommitMessage(diff string) (string, error) {
 			return cleanMessage(block.Text), nil
 		}
 	}
-	return "", fmt.Errorf("empty response from Claude")
+	return "", formatProviderEmptyResponse("Claude", resp.StatusCode, raw)
 }
