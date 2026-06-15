@@ -19,10 +19,11 @@ func RunSetup() (*Config, error) {
 
 	// ── provider ─────────────────────────────────────────────────────────────
 	fmt.Println("Choose a provider:")
-	fmt.Println("  [1] Claude      — Anthropic API (recommended)")
-	fmt.Println("  [2] OpenAI      — GPT models")
-	fmt.Println("  [3] Ollama      — local model, no API key needed")
-	fmt.Println("  [4] OpenRouter  — 300+ models via one API key")
+	fmt.Println("  [1] Free        — built-in free models, no API key needed")
+	fmt.Println("  [2] Claude      — Anthropic API key")
+	fmt.Println("  [3] OpenAI      — OpenAI API key")
+	fmt.Println("  [4] Ollama      — local model, no API key needed")
+	fmt.Println("  [5] OpenRouter  — custom OpenRouter key/model")
 	fmt.Print("\nProvider [1]: ")
 
 	choice := strings.TrimSpace(readLine(r))
@@ -31,20 +32,25 @@ func RunSetup() (*Config, error) {
 	}
 
 	switch choice {
-	case "1", "claude":
+	case "1", "free":
+		cfg.Provider = "free"
+		if err := setupFree(r, &cfg); err != nil {
+			return nil, err
+		}
+	case "2", "claude":
 		cfg.Provider = "claude"
 		if err := setupClaude(r, &cfg); err != nil {
 			return nil, err
 		}
-	case "2", "openai":
+	case "3", "openai":
 		cfg.Provider = "openai"
 		if err := setupOpenAI(r, &cfg); err != nil {
 			return nil, err
 		}
-	case "3", "ollama":
+	case "4", "ollama":
 		cfg.Provider = "ollama"
 		setupOllama(r, &cfg)
-	case "4", "openrouter":
+	case "5", "openrouter":
 		cfg.Provider = "openrouter"
 		if err := setupOpenRouter(r, &cfg); err != nil {
 			return nil, err
@@ -68,6 +74,22 @@ func Exists() bool {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+
+func setupFree(r *bufio.Reader, cfg *Config) error {
+	fmt.Println("\nFree built-in models:")
+	for i, model := range FreeModels {
+		fmt.Printf("  [%d] %-16s — %s\n", i+1, model.Name, model.Description)
+		fmt.Printf("      %s\n", model.ID)
+	}
+	fmt.Print("\nModel [1]: ")
+
+	model, err := FreeModelByChoice(strings.TrimSpace(readLine(r)))
+	if err != nil {
+		return err
+	}
+	cfg.Free.Model = model.ID
+	return nil
+}
 
 func setupClaude(r *bufio.Reader, cfg *Config) error {
 	fmt.Print("\nAnthropic API key (sk-ant-...): ")

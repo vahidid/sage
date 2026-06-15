@@ -10,13 +10,16 @@ import (
 	"github.com/vahidid/sage/internal/git"
 )
 
-const version = "0.1.0"
+var Version = "0.1.0"
+var BuiltinOpenRouterAPIKey = ""
 
 func main() {
 	// ── flags ─────────────────────────────────────────────────────────────────
 	dryRun := flag.Bool("dry-run", false, "Generate message without committing")
 	stageAll := flag.Bool("all", false, "Stage all changes before committing (like git commit -a)")
-	provider := flag.String("provider", "", "Override provider (claude, openai, ollama, openrouter)")
+	provider := flag.String("provider", "", "Override provider (free, claude, openai, ollama, openrouter)")
+	model := flag.String("model", "", "Override model for the selected provider")
+	listModels := flag.Bool("list-models", false, "Show available providers and built-in free models")
 	ver := flag.Bool("version", false, "Print version and exit")
 
 	flag.Usage = func() {
@@ -26,13 +29,16 @@ Usage:
   sage [flags]
 
 Flags:
-`, version)
+`, Version)
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, `
 Examples:
   sage                        generate and commit
   sage --dry-run              generate only, no commit
+  sage --provider free        use built-in free models
+  sage --provider free --model qwen/qwen3-coder:free
   sage --provider ollama      use local Ollama model
+  sage --list-models          show selectable models
 
 Config file: ~/.config/sage/config.json
 Docs:        github.com/vahidid/sage
@@ -42,17 +48,22 @@ Docs:        github.com/vahidid/sage
 	flag.Parse()
 
 	if *ver {
-		fmt.Println("sage", version)
+		fmt.Println("sage", Version)
 		return
 	}
 
-	if err := run(*dryRun, *stageAll, *provider); err != nil {
+	if *listModels {
+		printModels()
+		return
+	}
+
+	if err := run(*dryRun, *stageAll, *provider, *model); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(dryRun bool, stageAll bool, providerOverride string) error {
+func run(dryRun bool, stageAll bool, providerOverride string, modelOverride string) error {
 	// 1. must be inside a git repo
 	if !git.IsGitRepo() {
 		return fmt.Errorf("❌ not a git repository")
@@ -76,6 +87,9 @@ func run(dryRun bool, stageAll bool, providerOverride string) error {
 	}
 	if providerOverride != "" {
 		cfg.Provider = providerOverride
+	}
+	if modelOverride != "" {
+		applyModelOverride(cfg, modelOverride)
 	}
 
 	// 3. stage all if requested
@@ -132,6 +146,18 @@ func run(dryRun bool, stageAll bool, providerOverride string) error {
 
 func resolveProvider(cfg *config.Config) (ai.Provider, error) {
 	switch cfg.Provider {
+	case "free":
+		apiKey := freeOpenRouterAPIKey()
+		if apiKey == "" {
+			return nil, fmt.Errorf(
+				"❌ built-in free models are not enabled in this build\n" +
+					"   Install an official release binary, or build with:\n" +
+					"   go build -ldflags=\"-X main.BuiltinOpenRouterAPIKey=$SAGE_FREE_OPENROUTER_API_KEY\" .\n" +
+					"   For local development, you can also set SAGE_FREE_OPENROUTER_API_KEY.",
+			)
+		}
+		return ai.NewOpenRouterProvider(apiKey, cfg.Free.Model), nil
+
 	case "claude":
 		if cfg.Claude.APIKey == "" {
 			return nil, fmt.Errorf(
@@ -166,7 +192,47 @@ func resolveProvider(cfg *config.Config) (ai.Provider, error) {
 		return ai.NewOpenRouterProvider(cfg.OpenRouter.APIKey, cfg.OpenRouter.Model), nil
 
 	default:
-		return nil, fmt.Errorf("❌ unknown provider %q — choose: claude, openai, ollama, openrouter", cfg.Provider)
+		return nil, fmt.Errorf("❌ unknown provider %q — choose: free, claude, openai, ollama, openrouter", cfg.Provider)
+	}
+}
+
+func applyModelOverride(cfg *config.Config, model string) {
+	switch cfg.Provider {
+	case "free":
+		if preset, err := config.FreeModelByChoice(model); err == nil {
+			cfg.Free.Model = preset.ID
+			return
+		}
+		cfg.Free.Model = model
+	case "claude":
+		cfg.Claude.Model = model
+	case "openai":
+		cfg.OpenAI.Model = model
+	case "ollama":
+		cfg.Ollama.Model = model
+	case "openrouter":
+		cfg.OpenRouter.Model = model
+	}
+}
+
+func freeOpenRouterAPIKey() string {
+	if BuiltinOpenRouterAPIKey != "" {
+		return BuiltinOpenRouterAPIKey
+	}
+	return os.Getenv("SAGE_FREE_OPENROUTER_API_KEY")
+}
+
+func printModels() {
+	fmt.Println("Providers:")
+	fmt.Println("  free        built-in OpenRouter free models; no user API key")
+	fmt.Println("  claude      Anthropic API key")
+	fmt.Println("  openai      OpenAI API key")
+	fmt.Println("  ollama      local model")
+	fmt.Println("  openrouter  custom OpenRouter API key/model")
+	fmt.Println()
+	fmt.Println("Built-in free models:")
+	for i, model := range config.FreeModels {
+		fmt.Printf("  [%d] %-38s %s (%s)\n", i+1, model.ID, model.Name, model.Description)
 	}
 }
 

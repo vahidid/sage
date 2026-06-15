@@ -1,17 +1,18 @@
 BINARY  := sage
 VERSION := 0.1.0
-LDFLAGS := -ldflags="-s -w -X main.Version=$(VERSION)"
+SAGE_FREE_OPENROUTER_API_KEY ?=
+LDFLAGS := -ldflags="-s -w -X main.Version=$(VERSION) -X main.BuiltinOpenRouterAPIKey=$(SAGE_FREE_OPENROUTER_API_KEY)"
 
 # ── development ───────────────────────────────────────────────────────────────
 
 build:
-	go build $(LDFLAGS) -o $(BINARY) .
+	@go build $(LDFLAGS) -o $(BINARY) .
 
 run:
 	go run . $(ARGS)
 
 install:
-	go install $(LDFLAGS) .
+	@go install $(LDFLAGS) .
 
 tidy:
 	go mod tidy
@@ -20,11 +21,11 @@ tidy:
 
 release: clean
 	mkdir -p dist
-	GOOS=linux   GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-amd64   .
-	GOOS=linux   GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-arm64   .
-	GOOS=darwin  GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-amd64  .
-	GOOS=darwin  GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-arm64  .
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-amd64.exe .
+	@GOOS=linux   GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-amd64   .
+	@GOOS=linux   GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-linux-arm64   .
+	@GOOS=darwin  GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-amd64  .
+	@GOOS=darwin  GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY)-darwin-arm64  .
+	@GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY)-windows-amd64.exe .
 	@echo "✅ Binaries in ./dist/"
 
 clean:

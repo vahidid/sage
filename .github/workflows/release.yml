@@ -29,13 +29,15 @@ jobs:
       - name: Build binaries
         env:
           VERSION: ${{ steps.version.outputs.VERSION }}
+          SAGE_FREE_OPENROUTER_API_KEY: ${{ secrets.SAGE_FREE_OPENROUTER_API_KEY }}
         run: |
           mkdir -p dist
-          GOOS=linux   GOARCH=amd64 go build -ldflags="-s -w -X main.Version=${VERSION}" -o dist/sage-linux-amd64   .
-          GOOS=linux   GOARCH=arm64 go build -ldflags="-s -w -X main.Version=${VERSION}" -o dist/sage-linux-arm64   .
-          GOOS=darwin  GOARCH=amd64 go build -ldflags="-s -w -X main.Version=${VERSION}" -o dist/sage-darwin-amd64  .
-          GOOS=darwin  GOARCH=arm64 go build -ldflags="-s -w -X main.Version=${VERSION}" -o dist/sage-darwin-arm64  .
-          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X main.Version=${VERSION}" -o dist/sage-windows-amd64.exe .
+          LDFLAGS="-s -w -X main.Version=${VERSION} -X main.BuiltinOpenRouterAPIKey=${SAGE_FREE_OPENROUTER_API_KEY}"
+          GOOS=linux   GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/sage-linux-amd64   .
+          GOOS=linux   GOARCH=arm64 go build -ldflags="${LDFLAGS}" -o dist/sage-linux-arm64   .
+          GOOS=darwin  GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/sage-darwin-amd64  .
+          GOOS=darwin  GOARCH=arm64 go build -ldflags="${LDFLAGS}" -o dist/sage-darwin-arm64  .
+          GOOS=windows GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/sage-windows-amd64.exe .
 
       - name: Generate checksums
         working-directory: dist
