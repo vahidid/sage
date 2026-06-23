@@ -19,8 +19,6 @@ func GetStagedDiff() (string, error) {
 		return "", fmt.Errorf("git diff failed: %w", err)
 	}
 
-	fmt.Printf("Test For free models:")
-
 	diff := strings.TrimSpace(string(out))
 	if diff == "" {
 		return "", fmt.Errorf(

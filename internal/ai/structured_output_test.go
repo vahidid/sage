@@ -52,6 +52,48 @@ func TestParseStructuredCommitMessageRejectsUnusableOutput(t *testing.T) {
 	}
 }
 
+func TestParseStructuredCommitMessageRejectsInvalidCommitMessage(t *testing.T) {
+	if _, err := parseStructuredCommitMessage(`{"commit_message":"updated the API and config files"}`); err == nil {
+		t.Fatal("parseStructuredCommitMessage() error = nil, want non-nil")
+	}
+}
+
+func TestParseProviderCommitMessageAcceptsStructuredJSON(t *testing.T) {
+	got, err := parseProviderCommitMessage(`{"commit_message":"fix(api): return status"}`)
+	if err != nil {
+		t.Fatalf("parseProviderCommitMessage() error = %v", err)
+	}
+	if got != "fix(api): return status" {
+		t.Fatalf("parseProviderCommitMessage() = %q", got)
+	}
+}
+
+func TestValidateCommitMessage(t *testing.T) {
+	valid := []string{
+		"fix(api): return status",
+		"docs(readme): document free provider",
+		"chore(ci): inject release credentials",
+	}
+	for _, msg := range valid {
+		if err := validateCommitMessage(msg); err != nil {
+			t.Fatalf("validateCommitMessage(%q) error = %v", msg, err)
+		}
+	}
+
+	invalid := []string{
+		"updated the API",
+		"fix(api): Return status",
+		"fix(api): return status.",
+		"fix(api): return status\nextra",
+		"build(api): return status",
+	}
+	for _, msg := range invalid {
+		if err := validateCommitMessage(msg); err == nil {
+			t.Fatalf("validateCommitMessage(%q) error = nil, want non-nil", msg)
+		}
+	}
+}
+
 func TestCommitMessageTextUsesStrictJSONSchema(t *testing.T) {
 	raw, err := json.Marshal(commitMessageText())
 	if err != nil {

@@ -106,7 +106,11 @@ func (c *ClaudeProvider) GenerateCommitMessage(diff string) (string, error) {
 
 	for _, block := range cr.Content {
 		if block.Type == "text" {
-			return cleanMessage(block.Text), nil
+			message, err := parseProviderCommitMessage(block.Text)
+			if err != nil {
+				return "", fmt.Errorf("Claude returned invalid commit message: %w", err)
+			}
+			return message, nil
 		}
 	}
 	return "", formatProviderEmptyResponse("Claude", resp.StatusCode, raw)

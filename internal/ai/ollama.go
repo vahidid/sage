@@ -96,5 +96,9 @@ func (o *OllamaProvider) GenerateCommitMessage(diff string) (string, error) {
 		}, raw)
 	}
 
-	return cleanMessage(or.Response), nil
+	message, err := parseProviderCommitMessage(or.Response)
+	if err != nil {
+		return "", fmt.Errorf("Ollama returned invalid commit message: %w", err)
+	}
+	return message, nil
 }

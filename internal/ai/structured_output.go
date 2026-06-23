@@ -10,6 +10,7 @@ import (
 const structuredCommitSystemPrompt = "Return a JSON object that matches the provided schema. The commit_message value must be a single Conventional Commit message with no explanation, preamble, or markdown."
 
 var conventionalCommitLine = regexp.MustCompile(`(?m)\b(feat|fix|refactor|chore|docs|style|test|perf)(\([^)]+\))?: [^\r\n]+`)
+var conventionalCommitExact = regexp.MustCompile(`^(feat|fix|refactor|chore|docs|style|test|perf)(\([a-z0-9._/-]+\))?: [a-z0-9][^\r\n]*$`)
 
 type openAICompatibleMessage struct {
 	Role    string `json:"role"`
@@ -154,6 +155,17 @@ func parseStructuredCommitMessage(content string) (string, error) {
 	return "", fmt.Errorf("could not extract commit_message from model output")
 }
 
+func parseProviderCommitMessage(content string) (string, error) {
+	if message, err := parseStructuredCommitMessage(content); err == nil {
+		return message, nil
+	}
+	message := cleanMessage(content)
+	if err := validateCommitMessage(message); err != nil {
+		return "", err
+	}
+	return message, nil
+}
+
 // extractResponsesText returns the assistant message text, or a descriptive
 // error when the response is empty or was truncated before completing (which
 // usually means reasoning exhausted maxCommitTokens).
@@ -195,10 +207,29 @@ func parseCommitMessageJSON(content string) (string, bool) {
 		return "", false
 	}
 	message := cleanMessage(parsed.CommitMessage)
-	if message == "" {
+	if validateCommitMessage(message) != nil {
 		return "", false
 	}
 	return message, true
+}
+
+func validateCommitMessage(message string) error {
+	if message == "" {
+		return fmt.Errorf("commit message is empty")
+	}
+	if strings.ContainsAny(message, "\r\n") {
+		return fmt.Errorf("commit message must be one line")
+	}
+	if len(message) > 72 {
+		return fmt.Errorf("commit message is longer than 72 characters")
+	}
+	if strings.HasSuffix(message, ".") {
+		return fmt.Errorf("commit message must not end with a period")
+	}
+	if !conventionalCommitExact.MatchString(message) {
+		return fmt.Errorf("commit message must be a Conventional Commit")
+	}
+	return nil
 }
 
 // stripModelChatter removes thinking blocks and markdown code fences so the
@@ -223,5 +254,9 @@ func extractConventionalCommit(content string) string {
 	if match == "" {
 		return ""
 	}
-	return cleanMessage(match)
+	message := cleanMessage(match)
+	if validateCommitMessage(message) != nil {
+		return ""
+	}
+	return message
 }
