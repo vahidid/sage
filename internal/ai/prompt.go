@@ -7,7 +7,7 @@ import (
 )
 
 const maxDiffLines = 500
-const commitSystemPrompt = "Return only one final commit message. No analysis, no reasoning, no markdown, no quotes, one line."
+const commitSystemPrompt = "Return only the final commit message: one line, no explanation, no preamble, no markdown, no quotes."
 
 // buildPrompt constructs the prompt sent to any AI provider.
 // Keeping it here means all providers behave identically.
@@ -32,17 +32,24 @@ Rules: <=72 chars, imperative subject, lowercase after colon, no period.
 
 Examples:
 diff: +func validateToken(token string) error
-commit: feat(auth): validate tokens before use
+feat(auth): validate tokens before use
 
 diff: -return nil
       +return fmt.Errorf("missing config")
-commit: fix(config): report missing config errors
+fix(config): report missing config errors
 
 diff: README.md
-commit: docs(readme): update usage examples
+docs(readme): update usage examples
 
 Diff:
 %s`, body)
+}
+
+// plainPrompt is the full prompt for providers that have no system role
+// (Ollama): the output instruction is prepended to the shared task prompt so
+// the model still knows to return only the commit message.
+func plainPrompt(diff string) string {
+	return commitSystemPrompt + "\n\n" + buildPrompt(diff)
 }
 
 var thinkingBlock = regexp.MustCompile(`(?s)<think(?:ing)?>.*?</think(?:ing)?>`)
@@ -59,5 +66,17 @@ func cleanMessage(msg string) string {
 	}
 
 	msg = strings.Trim(msg, "\"'`")
+	msg = stripCommitLabel(msg)
+	msg = strings.Trim(msg, "\"'`")
 	return strings.TrimSpace(msg)
+}
+
+// stripCommitLabel removes a leading "commit:" label that weaker models
+// sometimes echo from the prompt examples.
+func stripCommitLabel(msg string) string {
+	const label = "commit:"
+	if len(msg) >= len(label) && strings.EqualFold(msg[:len(label)], label) {
+		return strings.TrimSpace(msg[len(label):])
+	}
+	return msg
 }

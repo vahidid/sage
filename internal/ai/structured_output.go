@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const structuredCommitSystemPrompt = "Return a JSON object that matches the provided schema. The commit_message value must be one Conventional Commit message only. No analysis, no reasoning, no markdown, no quotes around the commit message text."
+const structuredCommitSystemPrompt = "Return a JSON object that matches the provided schema. The commit_message value must be a single Conventional Commit message with no explanation, preamble, or markdown."
 
 var conventionalCommitLine = regexp.MustCompile(`(?m)\b(feat|fix|refactor|chore|docs|style|test|perf)(\([^)]+\))?: [^\r\n]+`)
 
@@ -21,7 +21,15 @@ type openAICompatibleResponsesRequest struct {
 	Input           []openAICompatibleMessage `json:"input"`
 	Text            openAICompatibleText      `json:"text"`
 	MaxOutputTokens int                       `json:"max_output_tokens"`
-	Temperature     float64                   `json:"temperature"`
+	Reasoning       *reasoningConfig          `json:"reasoning,omitempty"`
+	// Temperature is a pointer so it can be omitted: reasoning models reject it.
+	Temperature *float64 `json:"temperature,omitempty"`
+}
+
+// reasoningConfig enables provider-side reasoning on the Responses API.
+// Effort is fixed to "low" for now; it will become configurable later.
+type reasoningConfig struct {
+	Effort string `json:"effort"`
 }
 
 type openAICompatibleText struct {
@@ -48,13 +56,28 @@ type structuredCommitMessage struct {
 }
 
 type openAICompatibleResponsesResponse struct {
-	OutputText string `json:"output_text,omitempty"`
-	Output     []struct {
-		Content []struct {
-			Text string `json:"text,omitempty"`
-		} `json:"content,omitempty"`
-	} `json:"output,omitempty"`
-	Error *providerAPIError `json:"error,omitempty"`
+	OutputText string                       `json:"output_text,omitempty"`
+	Status     string                       `json:"status,omitempty"`
+	Incomplete *openAICompatibleIncomplete  `json:"incomplete_details,omitempty"`
+	Output     []openAICompatibleOutputItem `json:"output,omitempty"`
+	Error      *providerAPIError            `json:"error,omitempty"`
+}
+
+type openAICompatibleIncomplete struct {
+	Reason string `json:"reason"`
+}
+
+// openAICompatibleOutputItem is one item in the Responses API output array.
+// With reasoning enabled the array holds a "reasoning" item and a "message"
+// item; only the latter carries the answer.
+type openAICompatibleOutputItem struct {
+	Type    string                          `json:"type"`
+	Content []openAICompatibleOutputContent `json:"content,omitempty"`
+}
+
+type openAICompatibleOutputContent struct {
+	Type string `json:"type"`
+	Text string `json:"text,omitempty"`
 }
 
 func commitMessageText() openAICompatibleText {
@@ -78,13 +101,22 @@ func commitMessageText() openAICompatibleText {
 	}
 }
 
+const (
+	// maxCommitTokens must cover reasoning tokens plus the JSON answer, since
+	// the Responses API counts reasoning against this budget.
+	maxCommitTokens = 2048
+	// reasoningEffort is fixed for now; it will become configurable later.
+	reasoningEffort = "low"
+)
+
 func newOpenAICompatibleResponsesRequest(model string, input []openAICompatibleMessage) openAICompatibleResponsesRequest {
 	return openAICompatibleResponsesRequest{
 		Model:           model,
 		Input:           input,
 		Text:            commitMessageText(),
-		MaxOutputTokens: 80,
-		Temperature:     0,
+		MaxOutputTokens: maxCommitTokens,
+		Reasoning:       &reasoningConfig{Effort: reasoningEffort},
+		// Temperature is intentionally omitted: reasoning models reject it.
 	}
 }
 
@@ -99,33 +131,22 @@ func structuredCommitMessages(diff string) []openAICompatibleMessage {
 	}
 }
 
-func freeLLMAPICommitMessages(diff string) []openAICompatibleMessage {
-	return []openAICompatibleMessage{
-		{Role: "system", Content: structuredCommitSystemPrompt},
-		{Role: "user", Content: buildPrompt(diff)},
-		{Role: "assistant", Content: "{"},
-	}
-}
-
 func parseStructuredCommitMessage(content string) (string, error) {
+	// Providers with strict json_schema return a clean JSON object.
 	if message, ok := parseCommitMessageJSON(content); ok {
 		return message, nil
 	}
 
+	// Free models sometimes wrap the JSON in prose or markdown fences;
+	// pull out the JSON object and try once more.
 	cleaned := stripModelChatter(content)
-	if message, ok := parseCommitMessageJSON(cleaned); ok {
-		return message, nil
-	}
-	if !strings.HasPrefix(strings.TrimSpace(cleaned), "{") {
-		if message, ok := parseCommitMessageJSON("{" + cleaned); ok {
-			return message, nil
-		}
-	}
 	if jsonObject := extractJSONObject(cleaned); jsonObject != "" {
 		if message, ok := parseCommitMessageJSON(jsonObject); ok {
 			return message, nil
 		}
 	}
+
+	// Last resort: grab a Conventional Commit line directly from the text.
 	if message := extractConventionalCommit(cleaned); message != "" {
 		return message, nil
 	}
@@ -133,12 +154,33 @@ func parseStructuredCommitMessage(content string) (string, error) {
 	return "", fmt.Errorf("could not extract commit_message from model output")
 }
 
+// extractResponsesText returns the assistant message text, or a descriptive
+// error when the response is empty or was truncated before completing (which
+// usually means reasoning exhausted maxCommitTokens).
+func extractResponsesText(provider string, resp openAICompatibleResponsesResponse, status int, raw []byte) (string, error) {
+	if content := firstResponsesText(resp); content != "" {
+		return content, nil
+	}
+	if resp.Status == "incomplete" && resp.Incomplete != nil && resp.Incomplete.Reason == "max_output_tokens" {
+		return "", formatProviderTruncated(provider, status, raw)
+	}
+	return "", formatProviderEmptyResponse(provider, status, raw)
+}
+
 func firstResponsesText(resp openAICompatibleResponsesResponse) string {
 	if strings.TrimSpace(resp.OutputText) != "" {
 		return resp.OutputText
 	}
 	for _, output := range resp.Output {
+		// With reasoning enabled the answer lives in the "message" item;
+		// skip "reasoning" (and any other) item types.
+		if output.Type != "" && output.Type != "message" {
+			continue
+		}
 		for _, content := range output.Content {
+			if content.Type != "" && content.Type != "output_text" {
+				continue
+			}
 			if strings.TrimSpace(content.Text) != "" {
 				return content.Text
 			}
@@ -159,30 +201,12 @@ func parseCommitMessageJSON(content string) (string, bool) {
 	return message, true
 }
 
+// stripModelChatter removes thinking blocks and markdown code fences so the
+// JSON object or Conventional Commit line underneath can be extracted.
 func stripModelChatter(content string) string {
 	content = thinkingBlock.ReplaceAllString(content, "")
 	content = strings.TrimSpace(content)
-	content = strings.Trim(content, "`")
-
-	if strings.HasPrefix(strings.ToLower(content), "json") {
-		content = strings.TrimSpace(content[len("json"):])
-	}
-
-	prefixes := []string{
-		"here is your commit message:",
-		"here is the commit message:",
-		"commit message:",
-		"sure, here is the commit message:",
-		"sure:",
-	}
-	lower := strings.ToLower(content)
-	for _, prefix := range prefixes {
-		if strings.HasPrefix(lower, prefix) {
-			return strings.TrimSpace(content[len(prefix):])
-		}
-	}
-
-	return content
+	return strings.Trim(content, "`")
 }
 
 func extractJSONObject(content string) string {

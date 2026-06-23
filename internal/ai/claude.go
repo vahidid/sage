@@ -70,6 +70,8 @@ func (c *ClaudeProvider) GenerateCommitMessage(diff string) (string, error) {
 		return "", fmt.Errorf("failed to build request: %w", err)
 	}
 
+	debugLogRequest("Claude", claudeAPIURL, body)
+
 	req, err := http.NewRequest(http.MethodPost, claudeAPIURL, bytes.NewBuffer(body))
 	if err != nil {
 		return "", err
@@ -85,6 +87,7 @@ func (c *ClaudeProvider) GenerateCommitMessage(diff string) (string, error) {
 	defer resp.Body.Close()
 
 	raw, _ := io.ReadAll(resp.Body)
+	debugLogResponse("Claude", resp.StatusCode, raw)
 
 	var cr claudeResponse
 	if err := json.Unmarshal(raw, &cr); err != nil {

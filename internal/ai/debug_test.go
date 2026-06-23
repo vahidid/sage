@@ -6,6 +6,15 @@ import (
 	"testing"
 )
 
+func TestDebugPayloadFallsBackToPlaceholder(t *testing.T) {
+	if got := debugPayload(nil); got != "(empty)" {
+		t.Fatalf("debugPayload(nil) = %q, want %q", got, "(empty)")
+	}
+	if got := debugPayload([]byte(`{"a":1}`)); got != `{"a":1}` {
+		t.Fatalf("debugPayload() = %q, want %q", got, `{"a":1}`)
+	}
+}
+
 func TestFormatProviderAPIErrorHidesDebugDetailsByDefault(t *testing.T) {
 	t.Setenv("SAGE_DEBUG", "")
 

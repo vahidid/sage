@@ -53,6 +53,44 @@ func TestCleanMessageReturnsOnlyFirstLine(t *testing.T) {
 	}
 }
 
+func TestCleanMessageStripsCommitLabel(t *testing.T) {
+	cases := []struct {
+		name string
+		msg  string
+		want string
+	}{
+		{name: "lowercase", msg: "commit: fix(api): return status", want: "fix(api): return status"},
+		{name: "capitalized", msg: "Commit: fix(api): return status", want: "fix(api): return status"},
+		{name: "quoted after label", msg: `commit: "fix(api): return status"`, want: "fix(api): return status"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := cleanMessage(tc.msg); got != tc.want {
+				t.Fatalf("cleanMessage() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCommitSystemPromptForbidsExplanations(t *testing.T) {
+	if !strings.Contains(strings.ToLower(commitSystemPrompt), "no explanation") {
+		t.Fatalf("commitSystemPrompt should forbid explanations: %q", commitSystemPrompt)
+	}
+}
+
+func TestPlainPromptPrependsOutputInstruction(t *testing.T) {
+	diff := "diff --git a/a b/a\n+change"
+	got := plainPrompt(diff)
+
+	if !strings.HasPrefix(got, commitSystemPrompt) {
+		t.Fatalf("plainPrompt() should start with the output instruction:\n%s", got)
+	}
+	if !strings.Contains(got, diff) {
+		t.Fatalf("plainPrompt() missing diff body:\n%s", got)
+	}
+}
+
 func TestBuildPromptIncludesDiffBody(t *testing.T) {
 	diff := "diff --git a/main.go b/main.go\n+fmt.Println(\"hello\")"
 	got := buildPrompt(diff)

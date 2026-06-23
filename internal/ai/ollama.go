@@ -51,15 +51,18 @@ type ollamaResponse struct {
 func (o *OllamaProvider) GenerateCommitMessage(diff string) (string, error) {
 	body, err := json.Marshal(ollamaRequest{
 		Model:  o.model,
-		Prompt: buildPrompt(diff),
+		Prompt: plainPrompt(diff),
 		Stream: false,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to build request: %w", err)
 	}
 
+	url := fmt.Sprintf("%s/api/generate", o.host)
+	debugLogRequest("Ollama", url, body)
+
 	resp, err := http.Post(
-		fmt.Sprintf("%s/api/generate", o.host),
+		url,
 		"application/json",
 		bytes.NewBuffer(body),
 	)
@@ -74,6 +77,7 @@ func (o *OllamaProvider) GenerateCommitMessage(diff string) (string, error) {
 	defer resp.Body.Close()
 
 	raw, _ := io.ReadAll(resp.Body)
+	debugLogResponse("Ollama", resp.StatusCode, raw)
 
 	var or ollamaResponse
 	if err := json.Unmarshal(raw, &or); err != nil {
