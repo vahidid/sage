@@ -34,9 +34,7 @@ func RunSetup() (*Config, error) {
 	switch choice {
 	case "1", "free":
 		cfg.Provider = "free"
-		if err := setupFree(r, &cfg); err != nil {
-			return nil, err
-		}
+		setupFree()
 	case "2", "claude":
 		cfg.Provider = "claude"
 		if err := setupClaude(r, &cfg); err != nil {
@@ -75,20 +73,8 @@ func Exists() bool {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-func setupFree(r *bufio.Reader, cfg *Config) error {
-	fmt.Println("\nFree built-in models:")
-	for i, model := range FreeModels {
-		fmt.Printf("  [%d] %-16s — %s\n", i+1, model.Name, model.Description)
-		fmt.Printf("      %s\n", model.ID)
-	}
-	fmt.Print("\nModel [1]: ")
-
-	model, err := FreeModelByChoice(strings.TrimSpace(readLine(r)))
-	if err != nil {
-		return err
-	}
-	cfg.Free.Model = model.ID
-	return nil
+func setupFree() {
+	fmt.Printf("\nFree model: %s (auto-selected)\n", DefaultFreeModel())
 }
 
 func setupClaude(r *bufio.Reader, cfg *Config) error {

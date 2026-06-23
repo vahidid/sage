@@ -14,15 +14,10 @@ import (
 //  3. Built-in defaults
 type Config struct {
 	Provider   string           `json:"provider"`
-	Free       FreeConfig       `json:"free"`
 	Claude     ClaudeConfig     `json:"claude"`
 	OpenAI     OpenAIConfig     `json:"openai"`
 	Ollama     OllamaConfig     `json:"ollama"`
 	OpenRouter OpenRouterConfig `json:"openrouter"`
-}
-
-type FreeConfig struct {
-	Model string `json:"model"`
 }
 
 type ClaudeConfig struct {
@@ -48,9 +43,6 @@ type OpenRouterConfig struct {
 // defaults
 var defaultConfig = Config{
 	Provider: "free",
-	Free: FreeConfig{
-		Model: DefaultFreeModel(),
-	},
 	Claude: ClaudeConfig{
 		Model: "claude-haiku-4-5-20251001",
 	},
@@ -62,7 +54,7 @@ var defaultConfig = Config{
 		Model: "qwen2.5-coder:1.5b",
 	},
 	OpenRouter: OpenRouterConfig{
-		Model: DefaultFreeModel(),
+		Model: "google/gemma-3-12b-it:free",
 	},
 }
 
@@ -80,9 +72,6 @@ func Load() (*Config, error) {
 	// env var overrides
 	if v := os.Getenv("SAGE_PROVIDER"); v != "" {
 		cfg.Provider = v
-	}
-	if v := os.Getenv("SAGE_FREE_MODEL"); v != "" {
-		cfg.Free.Model = v
 	}
 	if v := os.Getenv("ANTHROPIC_API_KEY"); v != "" {
 		cfg.Claude.APIKey = v

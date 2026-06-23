@@ -11,7 +11,8 @@ import (
 )
 
 var Version = "0.1.0"
-var BuiltinOpenRouterAPIKey = ""
+var BuiltinFreeLLMAPIKey = ""
+var BuiltinFreeLLMAPIBaseURL = ""
 
 func main() {
 	// ── flags ─────────────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ Examples:
   sage                        generate and commit
   sage --dry-run              generate only, no commit
   sage --provider free        use built-in free models
-  sage --provider free --model qwen/qwen3-coder:free
+  sage --provider openrouter --model qwen/qwen3-coder:free
   sage --provider ollama      use local Ollama model
   sage --list-models          show selectable models
 
@@ -89,7 +90,9 @@ func run(dryRun bool, stageAll bool, providerOverride string, modelOverride stri
 		cfg.Provider = providerOverride
 	}
 	if modelOverride != "" {
-		applyModelOverride(cfg, modelOverride)
+		if err := applyModelOverride(cfg, modelOverride); err != nil {
+			return err
+		}
 	}
 
 	// 3. stage all if requested
@@ -146,17 +149,8 @@ func run(dryRun bool, stageAll bool, providerOverride string, modelOverride stri
 
 func resolveProvider(cfg *config.Config) (ai.Provider, error) {
 	switch cfg.Provider {
-	case "free":
-		apiKey := freeOpenRouterAPIKey()
-		if apiKey == "" {
-			return nil, fmt.Errorf(
-				"❌ built-in free models are not enabled in this build\n" +
-					"   Install an official release binary, or build with:\n" +
-					"   go build -ldflags=\"-X main.BuiltinOpenRouterAPIKey=$SAGE_FREE_OPENROUTER_API_KEY\" .\n" +
-					"   For local development, you can also set SAGE_FREE_OPENROUTER_API_KEY.",
-			)
-		}
-		return ai.NewOpenRouterProvider(apiKey, cfg.Free.Model), nil
+	case "free", "freellmapi":
+		return newFreeLLMAPIProvider()
 
 	case "claude":
 		if cfg.Claude.APIKey == "" {
@@ -196,14 +190,31 @@ func resolveProvider(cfg *config.Config) (ai.Provider, error) {
 	}
 }
 
-func applyModelOverride(cfg *config.Config, model string) {
+func newFreeLLMAPIProvider() (ai.Provider, error) {
+	apiKey := freeLLMAPIKey()
+	if apiKey == "" {
+		return nil, fmt.Errorf(
+			"❌ built-in FreeLLMApi access is not enabled in this build\n" +
+				"   Install an official release binary, or build with:\n" +
+				"   go build -ldflags=\"-X main.BuiltinFreeLLMAPIKey=$SAGE_FREE_LLM_API_KEY -X main.BuiltinFreeLLMAPIBaseURL=$SAGE_FREE_LLM_API_BASE_URL\" .\n" +
+				"   For local development, you can also set SAGE_FREE_LLM_API_KEY.",
+		)
+	}
+	baseURL := freeLLMAPIBaseURL()
+	if baseURL == "" {
+		return nil, fmt.Errorf(
+			"❌ FreeLLMApi base URL is not set\n" +
+				"   Build with: -X main.BuiltinFreeLLMAPIBaseURL=$SAGE_FREE_LLM_API_BASE_URL\n" +
+				"   For local development, you can also set SAGE_FREE_LLM_API_BASE_URL.",
+		)
+	}
+	return ai.NewFreeLLMAPIProvider(apiKey, baseURL, config.DefaultFreeModel()), nil
+}
+
+func applyModelOverride(cfg *config.Config, model string) error {
 	switch cfg.Provider {
-	case "free":
-		if preset, err := config.FreeModelByChoice(model); err == nil {
-			cfg.Free.Model = preset.ID
-			return
-		}
-		cfg.Free.Model = model
+	case "free", "freellmapi":
+		return fmt.Errorf("❌ free provider selects its model automatically; use --provider openrouter for custom OpenRouter models")
 	case "claude":
 		cfg.Claude.Model = model
 	case "openai":
@@ -213,27 +224,30 @@ func applyModelOverride(cfg *config.Config, model string) {
 	case "openrouter":
 		cfg.OpenRouter.Model = model
 	}
+	return nil
 }
 
-func freeOpenRouterAPIKey() string {
-	if BuiltinOpenRouterAPIKey != "" {
-		return BuiltinOpenRouterAPIKey
+func freeLLMAPIKey() string {
+	if BuiltinFreeLLMAPIKey != "" {
+		return BuiltinFreeLLMAPIKey
 	}
-	return os.Getenv("SAGE_FREE_OPENROUTER_API_KEY")
+	return os.Getenv("SAGE_FREE_LLM_API_KEY")
+}
+
+func freeLLMAPIBaseURL() string {
+	if BuiltinFreeLLMAPIBaseURL != "" {
+		return BuiltinFreeLLMAPIBaseURL
+	}
+	return os.Getenv("SAGE_FREE_LLM_API_BASE_URL")
 }
 
 func printModels() {
 	fmt.Println("Providers:")
-	fmt.Println("  free        built-in OpenRouter free models; no user API key")
+	fmt.Printf("  free        built-in FreeLLMApi model (%s); no user API key\n", config.DefaultFreeModel())
 	fmt.Println("  claude      Anthropic API key")
 	fmt.Println("  openai      OpenAI API key")
 	fmt.Println("  ollama      local model")
 	fmt.Println("  openrouter  custom OpenRouter API key/model")
-	fmt.Println()
-	fmt.Println("Built-in free models:")
-	for i, model := range config.FreeModels {
-		fmt.Printf("  [%d] %-38s %s (%s)\n", i+1, model.ID, model.Name, model.Description)
-	}
 }
 
 func confirm(prompt string) bool {

@@ -13,22 +13,22 @@ func TestFreeModelByChoiceDefaultsToFirstModel(t *testing.T) {
 }
 
 func TestFreeModelByChoiceAcceptsNumber(t *testing.T) {
-	model, err := FreeModelByChoice("2")
+	model, err := FreeModelByChoice("1")
 	if err != nil {
 		t.Fatalf("FreeModelByChoice() error = %v", err)
 	}
-	if model.ID != FreeModels[1].ID {
-		t.Fatalf("FreeModelByChoice() = %q, want %q", model.ID, FreeModels[1].ID)
+	if model.ID != FreeModels[0].ID {
+		t.Fatalf("FreeModelByChoice() = %q, want %q", model.ID, FreeModels[0].ID)
 	}
 }
 
 func TestFreeModelByChoiceAcceptsModelID(t *testing.T) {
-	model, err := FreeModelByChoice(FreeModels[2].ID)
+	model, err := FreeModelByChoice(DefaultFreeLLMAPIModel)
 	if err != nil {
 		t.Fatalf("FreeModelByChoice() error = %v", err)
 	}
-	if model.ID != FreeModels[2].ID {
-		t.Fatalf("FreeModelByChoice() = %q, want %q", model.ID, FreeModels[2].ID)
+	if model.ID != DefaultFreeLLMAPIModel {
+		t.Fatalf("FreeModelByChoice() = %q, want %q", model.ID, DefaultFreeLLMAPIModel)
 	}
 }
 

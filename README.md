@@ -25,12 +25,12 @@ sage --dry-run
 # override provider for one run
 sage --provider free
 sage --provider ollama
+sage --provider openrouter
 
-# choose a model for one run
-sage --provider free --model 2
-sage --provider free --model qwen/qwen3-coder:free
+# choose a custom model for OpenRouter
+sage --provider openrouter --model qwen/qwen3-coder:free
 
-# show built-in free models
+# show available providers
 sage --list-models
 
 # print version
@@ -44,9 +44,6 @@ Create `~/.config/sage/config.json`:
 ```json
 {
   "provider": "free",
-  "free": {
-    "model": "qwen/qwen3-coder:free"
-  },
   "claude": {
     "api_key": "sk-ant-...",
     "model": "claude-haiku-4-5-20251001"
@@ -68,25 +65,17 @@ Create `~/.config/sage/config.json`:
 
 ### Built-in free models
 
-Official release binaries can include a built-in OpenRouter key, so users can
-pick the `free` provider without configuring their own API key:
+Official release binaries include built-in FreeLLMApi access, so users can pick
+the `free` provider without configuring an API key or model:
 
 ```bash
 sage --provider free
 sage --list-models
 ```
 
-The bundled free presets are:
-
-| Model | Use case |
-|-------|----------|
-| `qwen/qwen3-coder:free` | code-heavy diffs |
-| `openai/gpt-oss-20b:free` | fast general-purpose commits |
-| `google/gemma-4-26b-a4b-it:free` | balanced open model |
-| `meta-llama/llama-3.3-70b-instruct:free` | strong general instruction following |
-
-For the `free` provider, `--model` accepts either the model ID or the number
-shown by `sage --list-models`.
+The free model is auto-selected as `auto` and served through FreeLLMApi.
+Use the `openrouter` provider when you want to provide your own OpenRouter API
+key and choose a custom model.
 
 ### Environment variables
 
@@ -94,8 +83,8 @@ shown by `sage --list-models`.
 |----------|-------------|
 | `SAGE_PROVIDER` | Override provider (`free`, `claude`, `openai`, `ollama`, `openrouter`) |
 | `SAGE_DEBUG` | Show provider HTTP status and raw error details |
-| `SAGE_FREE_MODEL` | Override built-in free model |
-| `SAGE_FREE_OPENROUTER_API_KEY` | Local/dev key for built-in free models |
+| `SAGE_FREE_LLM_API_KEY` | Local/dev key for built-in FreeLLMApi access |
+| `SAGE_FREE_LLM_API_BASE_URL` | Local/dev FreeLLMApi base URL, for example `http://65.109.176.81:3001` |
 | `ANTHROPIC_API_KEY` | Claude API key (standard) |
 | `SAGE_CLAUDE_API_KEY` | Claude API key |
 | `SAGE_CLAUDE_MODEL` | Override Claude model |
@@ -108,11 +97,16 @@ shown by `sage --list-models`.
 | `SAGE_OPENROUTER_API_KEY` | OpenRouter API key |
 | `SAGE_OPENROUTER_MODEL` | Override OpenRouter model |
 
-Release builds can inject the bundled free key with:
+Release builds can inject the bundled free key and base URL with Make arguments:
 
 ```bash
-go build -ldflags="-s -w -X main.BuiltinOpenRouterAPIKey=$SAGE_FREE_OPENROUTER_API_KEY" .
+make release \
+  SAGE_FREE_LLM_API_KEY=$SAGE_FREE_LLM_API_KEY \
+  SAGE_FREE_LLM_API_BASE_URL=$SAGE_FREE_LLM_API_BASE_URL
 ```
+
+The GitHub Actions release workflow reads the same values from repository
+secrets named `SAGE_FREE_LLM_API_KEY` and `SAGE_FREE_LLM_API_BASE_URL`.
 
 ## Offline mode (Ollama)
 

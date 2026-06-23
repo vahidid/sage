@@ -1,7 +1,8 @@
 BINARY  := sage
 VERSION := 0.1.0
-SAGE_FREE_OPENROUTER_API_KEY ?=
-LDFLAGS := -ldflags="-s -w -X main.Version=$(VERSION) -X main.BuiltinOpenRouterAPIKey=$(SAGE_FREE_OPENROUTER_API_KEY)"
+SAGE_FREE_LLM_API_KEY ?=
+SAGE_FREE_LLM_API_BASE_URL ?=
+LDFLAGS := -ldflags="-s -w -X main.Version=$(VERSION) -X main.BuiltinFreeLLMAPIKey=$(SAGE_FREE_LLM_API_KEY) -X main.BuiltinFreeLLMAPIBaseURL=$(SAGE_FREE_LLM_API_BASE_URL)"
 
 # ── development ───────────────────────────────────────────────────────────────
 

@@ -30,6 +30,17 @@ Format: <type>(<scope>): <subject>
 Types: feat, fix, refactor, chore, docs, style, test, perf
 Rules: <=72 chars, imperative subject, lowercase after colon, no period.
 
+Examples:
+diff: +func validateToken(token string) error
+commit: feat(auth): validate tokens before use
+
+diff: -return nil
+      +return fmt.Errorf("missing config")
+commit: fix(config): report missing config errors
+
+diff: README.md
+commit: docs(readme): update usage examples
+
 Diff:
 %s`, body)
 }
@@ -47,5 +58,6 @@ func cleanMessage(msg string) string {
 		msg = msg[:idx]
 	}
 
+	msg = strings.Trim(msg, "\"'`")
 	return strings.TrimSpace(msg)
 }

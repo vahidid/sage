@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	openaiAPIURL       = "https://api.openai.com/v1/chat/completions"
+	openaiAPIURL       = "https://api.openai.com/v1/responses"
 	openaiDefaultModel = "gpt-4o-mini"
 )
 
@@ -30,43 +30,10 @@ func (o *OpenAIProvider) Name() string {
 	return fmt.Sprintf("openai (%s)", o.model)
 }
 
-// ── request / response structs ────────────────────────────────────────────────
-
-type openaiRequest struct {
-	Model       string          `json:"model"`
-	MaxTokens   int             `json:"max_tokens"`
-	Temperature float64         `json:"temperature"`
-	Stream      bool            `json:"stream"`
-	Messages    []openaiMessage `json:"messages"`
-}
-
-type openaiMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type openaiResponse struct {
-	Choices []struct {
-		Message struct {
-			Content string `json:"content"`
-		} `json:"message"`
-	} `json:"choices"`
-	Error *providerAPIError `json:"error,omitempty"`
-}
-
 // ── main method ───────────────────────────────────────────────────────────────
 
 func (o *OpenAIProvider) GenerateCommitMessage(diff string) (string, error) {
-	body, err := json.Marshal(openaiRequest{
-		Model:       o.model,
-		MaxTokens:   80,
-		Temperature: 0,
-		Stream:      false,
-		Messages: []openaiMessage{
-			{Role: "system", Content: commitSystemPrompt},
-			{Role: "user", Content: buildPrompt(diff)},
-		},
-	})
+	body, err := json.Marshal(newOpenAICompatibleResponsesRequest(o.model, structuredCommitMessages(diff)))
 	if err != nil {
 		return "", fmt.Errorf("failed to build request: %w", err)
 	}
@@ -86,7 +53,7 @@ func (o *OpenAIProvider) GenerateCommitMessage(diff string) (string, error) {
 
 	raw, _ := io.ReadAll(resp.Body)
 
-	var or openaiResponse
+	var or openAICompatibleResponsesResponse
 	if err := json.Unmarshal(raw, &or); err != nil {
 		return "", formatProviderParseError("OpenAI", resp.StatusCode, raw, err)
 	}
@@ -101,9 +68,14 @@ func (o *OpenAIProvider) GenerateCommitMessage(diff string) (string, error) {
 		return "", formatProviderAPIError("OpenAI", resp.StatusCode, *or.Error, raw)
 	}
 
-	if len(or.Choices) == 0 {
+	content := firstResponsesText(or)
+	if content == "" {
 		return "", formatProviderEmptyResponse("OpenAI", resp.StatusCode, raw)
 	}
 
-	return cleanMessage(or.Choices[0].Message.Content), nil
+	message, err := parseStructuredCommitMessage(content)
+	if err != nil {
+		return "", fmt.Errorf("OpenAI returned invalid structured output: %w", err)
+	}
+	return message, nil
 }

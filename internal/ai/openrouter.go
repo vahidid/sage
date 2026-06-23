@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	openrouterAPIURL       = "https://openrouter.ai/api/v1/chat/completions"
+	openrouterAPIURL       = "https://openrouter.ai/api/v1/responses"
 	openrouterDefaultModel = "google/gemma-3-12b-it:free"
 )
 
@@ -31,45 +31,7 @@ func (o *OpenRouterProvider) Name() string {
 }
 
 func (o *OpenRouterProvider) GenerateCommitMessage(diff string) (string, error) {
-	type msg struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
-	}
-	type reasoning struct {
-		Effort  string `json:"effort"`
-		Exclude bool   `json:"exclude"`
-	}
-	type reqBody struct {
-		Model       string    `json:"model"`
-		MaxTokens   int       `json:"max_tokens"`
-		Temperature float64   `json:"temperature"`
-		Stream      bool      `json:"stream"`
-		Reasoning   reasoning `json:"reasoning"`
-		Messages    []msg     `json:"messages"`
-	}
-	type respBody struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-		Error *providerAPIError `json:"error,omitempty"`
-	}
-
-	body, err := json.Marshal(reqBody{
-		Model:       o.model,
-		MaxTokens:   80,
-		Temperature: 0,
-		Stream:      false,
-		Reasoning: reasoning{
-			Effort:  "none",
-			Exclude: true,
-		},
-		Messages: []msg{
-			{Role: "system", Content: commitSystemPrompt},
-			{Role: "user", Content: buildPrompt(diff)},
-		},
-	})
+	body, err := json.Marshal(newOpenAICompatibleResponsesRequest(o.model, structuredCommitMessages(diff)))
 	if err != nil {
 		return "", fmt.Errorf("failed to build request: %w", err)
 	}
@@ -90,7 +52,7 @@ func (o *OpenRouterProvider) GenerateCommitMessage(diff string) (string, error) 
 
 	raw, _ := io.ReadAll(resp.Body)
 
-	var or respBody
+	var or openAICompatibleResponsesResponse
 	if err := json.Unmarshal(raw, &or); err != nil {
 		return "", formatProviderParseError("OpenRouter", resp.StatusCode, raw, err)
 	}
@@ -105,9 +67,14 @@ func (o *OpenRouterProvider) GenerateCommitMessage(diff string) (string, error) 
 		return "", formatProviderAPIError("OpenRouter", resp.StatusCode, *or.Error, raw)
 	}
 
-	if len(or.Choices) == 0 {
+	content := firstResponsesText(or)
+	if content == "" {
 		return "", formatProviderEmptyResponse("OpenRouter", resp.StatusCode, raw)
 	}
 
-	return cleanMessage(or.Choices[0].Message.Content), nil
+	message, err := parseStructuredCommitMessage(content)
+	if err != nil {
+		return "", fmt.Errorf("OpenRouter returned invalid structured output: %w", err)
+	}
+	return message, nil
 }
